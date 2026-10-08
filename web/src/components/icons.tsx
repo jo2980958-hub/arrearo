@@ -51,11 +51,11 @@ export function Icon({ name, ...rest }: { name: IconName } & SVGProps<SVGSVGElem
   );
 }
 
-export function LogoMark({ size = 30 }: { size?: number }) {
+export function LogoMark({ size = 30, onLight = false }: { size?: number; onLight?: boolean }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
-      <rect width="32" height="32" rx="8" fill="#f5f2ea" />
-      <path d="M9 23 16 8l7 15" fill="none" stroke="#0e241d" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      <rect width="32" height="32" rx="8" fill={onLight ? '#0e241d' : '#f5f2ea'} />
+      <path d="M9 23 16 8l7 15" fill="none" stroke={onLight ? '#f5f2ea' : '#0e241d'} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M11.6 18.4h8.8" stroke="#d9772b" strokeWidth="2.6" strokeLinecap="round" />
     </svg>
   );

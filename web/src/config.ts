@@ -18,3 +18,5 @@ export const DEV_TOKEN: string = env.VITE_DEV_TOKEN ?? '';
  */
 export const STATUTORY_ADDON_PCT = 8;
 export const FALLBACK_BASE_RATE_PCT = 3.75;
+
+export const WHATSAPP_SENDER = '+233 55 906 2312';
