@@ -7,7 +7,7 @@ re-check ownership with the business id from the session).
 """
 from __future__ import annotations
 
-from wa import actions, auth, menus, messages, session, views
+from wa import actions, auth, intent, menus, messages, session, views
 
 
 def _as_list(reply) -> list[dict]:
@@ -54,7 +54,7 @@ def handle(wa_number: str, inbound: dict) -> list[dict]:
     if tap_id:
         return _dispatch(wa_number, bid, *_split(tap_id))
 
-    # No tap: interpret media or free text against the current screen context.
+    # No tap: media, an expected debtor name, else natural-language intent.
     ctx = sess.get("context") or {}
     screen = ctx.get("screen")
     if media:
@@ -63,10 +63,24 @@ def handle(wa_number: str, inbound: dict) -> list[dict]:
     if screen == "awaiting_debtor" and text:
         session.clear_context(wa_number)
         return _as_list(views.debtor(bid, text.strip()))
-    if screen == "awaiting_invoice":
-        return [messages.text("Please send the invoice as a photo or a PDF.")]
+    if text:
+        return _resolve_freetext(wa_number, bid, text)
+    return [menus.main_menu()]
 
-    return [messages.text("I didn't catch that. Here's the menu."), menus.main_menu()]
+
+def _resolve_freetext(wa_number: str, bid: str, text: str) -> list[dict]:
+    """Hand free text to Claude: route to a screen/action, answer in words, or fall
+    back to the menu. Claude only chooses where to go; the engine owns every number,
+    and any invoice it picks is validated against this business in wa.intent."""
+    r = intent.resolve(text, bid)
+    kind = r.get("kind")
+    if kind == "route":
+        return _dispatch(wa_number, bid, *_split(r["tap_id"]))
+    if kind == "debtor":
+        return _as_list(views.debtor(bid, r.get("query") or text))
+    if kind == "answer":
+        return [messages.text(r["text"])]
+    return [menus.main_menu()]   # safe fallback
 
 
 def _dispatch(wa_number: str, bid: str, key: str, arg) -> list[dict]:
@@ -108,7 +122,7 @@ def _dispatch(wa_number: str, bid: str, key: str, arg) -> list[dict]:
         return _as_list(actions.lba_draft(bid, arg))
     if key == "lbago":
         return _as_list(actions.lba_send(bid, arg))
-    return [messages.text("I didn't catch that. Here's the menu."), menus.main_menu()]
+    return [menus.main_menu()]
 
 
 def _unauthed(wa_number: str, state: str, text, tap_id) -> list[dict]:

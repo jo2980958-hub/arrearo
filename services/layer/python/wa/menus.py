@@ -17,6 +17,7 @@ LOGOUT = "LOGOUT"
 _WORDS = {
     "start": START, "/start": START, "hi": START, "hello": START, "hey": START,
     "menu": MENU, "/menu": MENU, "main menu": MENU, "home": MENU,
+    "show menu": MENU, "show me menu": MENU, "show me the menu": MENU, "options": MENU,
     "summary": SUMMARY, "/summary": SUMMARY, "overview": SUMMARY,
     "back": BACK, "/back": BACK,
     "help": HELP, "/help": HELP,
