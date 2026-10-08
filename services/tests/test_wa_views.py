@@ -156,7 +156,7 @@ def test_debtor_known(business):
 def test_debtor_unknown(business):
     r = views.debtor(business["businessId"], "Nobody Ltd")
     assert r["type"] == "text"
-    assert _body(r) == "I don't have payment data on that company yet."
+    assert _body(r) == 'I don\'t have payment data on "Nobody Ltd" yet.'
 
 
 # ── settings ─────────────────────────────────────────────────────────────────

@@ -73,3 +73,41 @@ def test_show_menu_phrase_needs_no_llm(business):
     llm.set_client(FakeBedrock([]))
     replies = router.handle(num, {"text": "show me menu"})
     assert any(r.get("type") == "interactive" for r in replies)
+
+
+# ── web parity: edit, create, timeline, name search ─────────────────────────
+
+def test_router_edit_business_name(business):
+    num = _login(business)
+    llm.set_client(FakeBedrock([{"action": "edit_business", "field": "business name",
+                                 "value": "Brownshift Technologies UK"}]))
+    [r] = router.handle(num, {"text": "update business name to Brownshift Technologies UK"})
+    assert "Brownshift Technologies UK" in body(r)
+    assert db.get_business(business["businessId"])["name"] == "Brownshift Technologies UK"
+
+
+def test_router_edit_invoice_amount(business, invoice):
+    num = _login(business)
+    llm.set_client(FakeBedrock([{"action": "edit_invoice", "invoiceId": invoice["invoiceId"],
+                                 "field": "amount", "value": "9000"}]))
+    [r] = router.handle(num, {"text": "set the amount on that invoice to 9000"})
+    assert "£9,000" in body(r)
+    assert db.get_invoice(invoice["invoiceId"])["amountPence"] == 900000
+
+
+def test_router_timeline(business, invoice):
+    num = _login(business)
+    db.add_event(invoice["invoiceId"], "confirmed", "whatsapp", "owner", {})
+    llm.set_client(FakeBedrock([{"action": "timeline", "invoiceId": invoice["invoiceId"]}]))
+    [r] = router.handle(num, {"text": "show me the history of that invoice"})
+    assert "History" in body(r)
+
+
+def test_debtor_name_search_finds_by_name(business):
+    # the risk dataset is keyed by company number; lookup must be by name
+    db.put_debtor({"debtorKey": "00946107", "name": "BIFFA WASTE SERVICES LIMITED",
+                   "riskBand": "medium", "avgDaysToPay": 41})
+    num = _login(business)
+    llm.set_client(FakeBedrock([{"action": "debtors", "query": "biffa waste"}]))
+    [r] = router.handle(num, {"text": "check biffa waste"})
+    assert "BIFFA WASTE SERVICES LIMITED" in body(r) and "medium" in body(r)

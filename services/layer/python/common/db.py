@@ -283,6 +283,37 @@ def get_debtor(key: str) -> Optional[dict]:
     return _clean(r["Item"]) if "Item" in r else None
 
 
+def list_debtors() -> list[dict]:
+    items, start = [], None
+    while True:
+        r = table(config.TBL_DEBTORS).scan(**({"ExclusiveStartKey": start} if start else {}))
+        items += r.get("Items", [])
+        start = r.get("LastEvaluatedKey")
+        if not start:
+            return [_clean(i) for i in items]
+
+
+def find_debtor_by_name(name: str) -> Optional[dict]:
+    """Look a debtor up by name, since the risk dataset is keyed by company number.
+    Exact match wins; otherwise the shortest name that contains the query, or that the
+    query contains, or whose words all appear in it. Returns None when nothing matches."""
+    q = " ".join(str(name or "").lower().split())
+    if not q:
+        return None
+    words = q.split()
+    best = None
+    for d in list_debtors():
+        n = " ".join(str(d.get("name", "")).lower().split())
+        if not n:
+            continue
+        if n == q:
+            return d
+        if q in n or n in q or all(w in n for w in words):
+            if best is None or len(n) < len(" ".join(str(best.get("name", "")).lower().split())):
+                best = d
+    return best
+
+
 # ── conversations ───────────────────────────────────────────────────────────
 def add_message(whatsapp_number: str, direction: str, message_id: str, body: Optional[str] = None,
                 **extra) -> dict:

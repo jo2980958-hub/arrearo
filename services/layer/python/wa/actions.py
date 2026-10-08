@@ -8,6 +8,7 @@ Contract fixed by the spec — agent fills the bodies.
 """
 from __future__ import annotations
 
+import re
 from typing import Optional
 
 from agent import draft as drafter
@@ -16,6 +17,75 @@ from common import cds, config, db, flows
 from wa import messages
 
 NOT_FOUND = "I couldn't find that invoice."
+
+# Business fields editable from WhatsApp (parity with the web dashboard).
+BUSINESS_FIELDS = {"name", "email", "bankName", "bankSortCode", "bankAccount", "ownerName", "address"}
+_BUSINESS_LABEL = {"name": "business name", "email": "email", "bankName": "bank name",
+                   "bankSortCode": "sort code", "bankAccount": "account number",
+                   "ownerName": "owner name", "address": "address"}
+INVOICE_FIELDS = {"debtorName", "invoiceDate", "agreedDueDate", "reference", "description",
+                  "debtorEmail", "debtorWhatsapp"}
+
+
+def _pounds_to_pence(value) -> Optional[int]:
+    s = re.sub(r"[^0-9.]", "", str(value))
+    try:
+        return round(float(s) * 100) if s else None
+    except ValueError:
+        return None
+
+
+def update_business(business_id: str, field: str, value: str) -> dict:
+    """Edit a business detail (name, email, bank, owner, address). Web parity."""
+    if field not in BUSINESS_FIELDS or not value:
+        return messages.text("I can't change that here. Try, for example, "
+                             "'update business name to Brownshift Technologies UK'.")
+    if not db.get_business(business_id):
+        return messages.text("I couldn't load your business.")
+    db.update_business(business_id, {field: str(value).strip()})
+    return messages.text(f"Done. Your {_BUSINESS_LABEL.get(field, field)} is now {str(value).strip()}.")
+
+
+def edit_invoice(business_id: str, invoice_id: str, field: str, value: str) -> dict:
+    """Edit a field on an invoice (amount, customer, dates, reference, etc.). Web parity."""
+    inv = _owned(business_id, invoice_id)
+    if inv is None:
+        return messages.text(NOT_FOUND)
+    if field == "amountPence":
+        pence = _pounds_to_pence(value)
+        if pence is None:
+            return messages.text("I couldn't read that amount. Try 'set the amount to 9000'.")
+        db.update_invoice(invoice_id, {"amountPence": pence})
+        up = db.get_invoice(invoice_id)
+        return messages.text(f"Updated. {up.get('debtorName')} is now {config.gbp(up['amountPence'])}, "
+                             f"total owed {config.gbp(up['totalOwedPence'])}.")
+    if field in INVOICE_FIELDS and value:
+        db.update_invoice(invoice_id, {field: str(value).strip()})
+        up = db.get_invoice(invoice_id)
+        return messages.text(f"Updated. {up.get('debtorName')} invoice, {field} is now {str(value).strip()}.")
+    return messages.text("I can't change that field. You can edit amount, customer, dates, reference "
+                         "or description.")
+
+
+def create_from_text(business_id: str, text: str) -> dict:
+    """Create an invoice from a typed description, e.g. 'add invoice for Acme Ltd, 1200, 2026-09-01'."""
+    fields = extract.extract_from_text(text)
+    if not fields.get("isInvoice") or not all(fields.get(k) for k in ("debtorName", "amountPence", "invoiceDate")):
+        return messages.text("Tell me the customer, the amount and the invoice date, for example "
+                             "'add invoice for Acme Ltd, 1200, dated 2026-09-01'. Or send a photo or PDF.")
+    created = db.create_invoice(business_id, {
+        "debtorName": fields["debtorName"], "debtorType": "company", "amountPence": fields["amountPence"],
+        "currency": fields.get("currency") or config.CURRENCY, "invoiceDate": fields["invoiceDate"],
+        "deliveryDate": fields.get("deliveryDate"), "agreedDueDate": fields.get("agreedDueDate"),
+        "reference": fields.get("reference"), "description": fields.get("description"),
+        "status": "extracted", "sourceChannel": "whatsapp",
+        "extractionConfidence": fields.get("extractionConfidence")})
+    nid = created["invoiceId"]
+    db.add_event(nid, "created", "whatsapp", "owner", {})
+    db.add_event(nid, "extracted", "whatsapp", "agent", {"reference": fields.get("reference")})
+    summary = (f"I've added an invoice to {fields['debtorName']} for "
+               f"{config.gbp(fields['amountPence'])} dated {fields['invoiceDate']}.")
+    return messages.buttons(summary, [(f"confirm:{nid}", "Confirm"), ("menu", "Discard")])
 
 
 def _owned(business_id: str, invoice_id: str) -> Optional[dict]:

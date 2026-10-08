@@ -54,25 +54,26 @@ def handle(wa_number: str, inbound: dict) -> list[dict]:
     if tap_id:
         return _dispatch(wa_number, bid, *_split(tap_id))
 
-    # No tap: media, an expected debtor name, else natural-language intent.
+    # No tap: media goes to ingest; all other free text goes to the smart layer, which
+    # gets the current screen as a hint (so "List all companies" is never mistaken for a
+    # company name just because we last asked for one).
     ctx = sess.get("context") or {}
     screen = ctx.get("screen")
     if media:
         session.clear_context(wa_number)
         return _as_list(actions.ingest_media(bid, media))
-    if screen == "awaiting_debtor" and text:
-        session.clear_context(wa_number)
-        return _as_list(views.debtor(bid, text.strip()))
     if text:
-        return _resolve_freetext(wa_number, bid, text)
+        return _resolve_freetext(wa_number, bid, text, screen)
     return [menus.main_menu()]
 
 
-def _resolve_freetext(wa_number: str, bid: str, text: str) -> list[dict]:
-    """Hand free text to Claude: route to a screen/action, answer in words, or fall
-    back to the menu. Claude only chooses where to go; the engine owns every number,
-    and any invoice it picks is validated against this business in wa.intent."""
-    r = intent.resolve(text, bid)
+def _resolve_freetext(wa_number: str, bid: str, text: str, screen=None) -> list[dict]:
+    """Hand free text to Claude: route to a screen, run a write action, answer in words,
+    or fall back to the menu. Claude only chooses where to go and which field/value the
+    user named; the engine owns every number and ownership is validated in wa.intent."""
+    r = intent.resolve(text, bid, screen=screen)
+    if screen in ("awaiting_debtor", "awaiting_invoice"):
+        session.clear_context(wa_number)
     kind = r.get("kind")
     if kind == "route":
         return _dispatch(wa_number, bid, *_split(r["tap_id"]))
@@ -80,6 +81,14 @@ def _resolve_freetext(wa_number: str, bid: str, text: str) -> list[dict]:
         return _as_list(views.debtor(bid, r.get("query") or text))
     if kind == "answer":
         return [messages.text(r["text"])]
+    if kind == "edit_business":
+        return _as_list(actions.update_business(bid, r["field"], r["value"]))
+    if kind == "edit_invoice":
+        return _as_list(actions.edit_invoice(bid, r["invoiceId"], r["field"], r["value"]))
+    if kind == "timeline":
+        return _as_list(views.timeline(bid, r["invoiceId"]))
+    if kind == "create_invoice":
+        return _as_list(actions.create_from_text(bid, text))
     return [menus.main_menu()]   # safe fallback
 
 

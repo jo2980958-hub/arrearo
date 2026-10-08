@@ -104,11 +104,30 @@ def invoice_detail(business_id: str, invoice_id: str) -> dict:
     return [messages.text(detail), messages.buttons("What next?", actions)]
 
 
+def timeline(business_id: str, invoice_id: str) -> dict:
+    """The recent history of one invoice: created, extracted, confirmed, chased, replied."""
+    inv = db.get_invoice(invoice_id)
+    if not inv or inv.get("businessId") != business_id:
+        return messages.text("I couldn't find that invoice.")
+    events = db.list_events(invoice_id)
+    if not events:
+        return messages.text(f"No history yet for {inv.get('debtorName') or 'that invoice'}.")
+    label = {"created": "received", "extracted": "read", "confirmed": "confirmed",
+             "scored": "risk scored", "chased": "chased", "replied": "debtor replied",
+             "promised": "promise to pay", "disputed": "disputed", "paid": "marked paid",
+             "lba_drafted": "LBA drafted", "lba_sent": "LBA sent"}
+    lines = [f"History for {inv.get('debtorName') or 'invoice'} (ref {inv.get('reference') or '-'}):"]
+    for e in events[-12:]:
+        when = str(e.get("createdAt", ""))[:10]
+        lines.append(f"- {when}  {label.get(e.get('type'), e.get('type'))}")
+    return messages.text("\n".join(lines))
+
+
 def debtor(business_id: str, query: str) -> dict:
     """Risk band, avg days to pay, share paid late for a named debtor; unknown stays unknown."""
-    d = db.get_debtor(db.debtor_key(query))
+    d = db.find_debtor_by_name(query)
     if not d:
-        return messages.text("I don't have payment data on that company yet.")
+        return messages.text(f'I don\'t have payment data on "{query}" yet.')
 
     lines = [d.get("name") or query]
     if d.get("riskBand"):
@@ -144,5 +163,5 @@ def settings(business_id: str) -> dict:
     if b.get("bankSortCode"):
         lines.append(f"Sort code: {b['bankSortCode']}")
     lines.append(f"Account: {masked}")
-    lines += ["", "View only here. Edit these on the web dashboard."]
+    lines += ["", "To change any of these, just tell me, e.g. \"update the sort code to 01-02-03\"."]
     return messages.text("\n".join(lines))
