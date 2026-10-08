@@ -14,7 +14,7 @@ Built for the AWS CDS Agentic AI hackathon. Live on AWS account 854924711083, re
 | Stack | `arrearo`, us-east-1 |
 | Demo login | `owner@arrearo.com` / `Arrearo-Demo-7391!Kq` |
 
-Docs: [Architecture](docs/ARCHITECTURE.md) · [Demo script](docs/DEMO.md) · [Pitch](docs/PITCH.md) · [API](docs/API.md) · [Spec](docs/SPEC.md) · [Build log](docs/BUILD-LOG.md)
+Submission: [Devpost write-up](submission/DEVPOST.md) · [Technical deep-dive](submission/TECHNICAL.md)
 
 ## The problem
 
@@ -37,7 +37,7 @@ Arrearo does the credit control, on the channel the debtor actually answers.
 - **A real legal engine.** The numbers and the compliance checks are plain tested code. The language model never decides what is owed.
 - **A debtor data asset.** Each debtor is scored from the UK government payment-practices data, and Arrearo logs payment behaviour as it runs.
 
-Positioning, from `research/market.md`: get paid on WhatsApp, with the statutory interest already added.
+Positioning: get paid on WhatsApp, with the statutory interest already added.
 
 ## How it works
 
@@ -52,9 +52,9 @@ Positioning, from `research/market.md`: get paid on WhatsApp, with the statutory
 
 ## Architecture
 
-Serverless, in one SAM stack. Full detail and diagram in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Serverless, in one SAM stack. Full detail and diagram in [submission/TECHNICAL.md](submission/TECHNICAL.md).
 
-![Arrearo architecture](docs/architecture.png)
+![Arrearo architecture](submission/architecture.png)
 
 - **AWS End User Messaging Social** receives and sends WhatsApp.
 - **Amazon SNS** carries inbound WhatsApp events.
@@ -150,8 +150,7 @@ We would rather you hear these from us.
 infra/       SAM template, deploy script, seed
 services/    functions (webhook, api, scheduler), layer (legal, agent, common), debtors, tests
 web/         React + Vite dashboard
-docs/        architecture, API, spec, demo, pitch, build log
-research/    market and technical research
+submission/  Devpost write-up, technical deep-dive, architecture diagram, images
 ```
 
 ## Licence
