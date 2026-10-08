@@ -89,6 +89,10 @@ def _resolve_freetext(wa_number: str, bid: str, text: str, screen=None) -> list[
         return _as_list(views.timeline(bid, r["invoiceId"]))
     if kind == "create_invoice":
         return _as_list(actions.create_from_text(bid, text))
+    if kind == "invoice_pdf":
+        return _as_list(actions.send_invoice_pdf(bid, r["invoiceId"], wa_number))
+    if kind == "statement_pdf":
+        return _as_list(actions.send_statement_pdf(bid, wa_number))
     return [menus.main_menu()]   # safe fallback
 
 
@@ -131,6 +135,10 @@ def _dispatch(wa_number: str, bid: str, key: str, arg) -> list[dict]:
         return _as_list(actions.lba_draft(bid, arg))
     if key == "lbago":
         return _as_list(actions.lba_send(bid, arg))
+    if key == "pdf":
+        return _as_list(actions.send_invoice_pdf(bid, arg, wa_number))
+    if key == "statement":
+        return _as_list(actions.send_statement_pdf(bid, wa_number))
     return [menus.main_menu()]
 
 

@@ -18,8 +18,9 @@ from agent import llm
 from common import config, db, flows
 
 ACTIONS = ["summary", "invoices", "add_invoice", "create_invoice", "debtors", "settings",
-           "edit_business", "edit_invoice", "timeline", "help", "menu", "logout",
-           "open_invoice", "chase", "mark_paid", "lba", "confirm", "answer", "unknown"]
+           "edit_business", "edit_invoice", "timeline", "invoice_pdf", "statement_pdf",
+           "help", "menu", "logout", "open_invoice", "chase", "mark_paid", "lba", "confirm",
+           "answer", "unknown"]
 
 ROUTE_TOOL = {"toolSpec": {
     "name": "route",
@@ -60,6 +61,8 @@ SYSTEM = (
     "invoiceId, field and value.\n"
     "- create_invoice: the user wants to add an invoice and typed its details; add_invoice: they want to "
     "add one but gave no details (we will ask for a photo or PDF).\n"
+    "- invoice_pdf: send one invoice as a PDF document (set invoiceId). statement_pdf: send a PDF "
+    "statement of all open invoices.\n"
     "- answer: a question you can answer from the facts given; keep it to one or two short sentences and "
     "never state a figure that is not in the facts (e.g. list the companies they have open invoices with).\n"
     "- menu for the menu or options; unknown when unsure."
@@ -155,6 +158,11 @@ def resolve(text: str, business_id: str, screen: Optional[str] = None) -> dict:
     if action == "timeline":
         iid = owned_id()
         return {"kind": "timeline", "invoiceId": iid} if iid else {"kind": "menu"}
+    if action == "invoice_pdf":
+        iid = owned_id()
+        return {"kind": "invoice_pdf", "invoiceId": iid} if iid else {"kind": "menu"}
+    if action == "statement_pdf":
+        return {"kind": "statement_pdf"}
     if action == "edit_business":
         field = _business_field(out.get("field", ""))
         if field and out.get("value"):

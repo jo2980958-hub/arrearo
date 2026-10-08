@@ -13,7 +13,7 @@ from typing import Optional
 
 from agent import draft as drafter
 from agent import extract
-from common import cds, config, db, flows
+from common import cds, config, db, documents, flows
 from wa import messages
 
 NOT_FOUND = "I couldn't find that invoice."
@@ -271,3 +271,32 @@ def ingest_media(business_id: str, media: dict) -> dict:
         (f"confirm:{new_id}", "Confirm"),
         ("menu", "Discard"),
     ])
+
+
+def send_invoice_pdf(business_id: str, invoice_id: str, to_number: str) -> dict:
+    """Render a designed invoice PDF and send it to the owner as a WhatsApp document."""
+    inv = _owned(business_id, invoice_id)
+    if inv is None:
+        return messages.text(NOT_FOUND)
+    biz = db.get_business(business_id)
+    pdf = documents.invoice_pdf(biz, inv)
+    ref = inv.get("reference") or inv["invoiceId"][:8]
+    cds.send_whatsapp_document(to_number, pdf, f"invoice-{ref}.pdf",
+                               caption=f"Invoice to {inv.get('debtorName')} - {config.gbp(inv['totalOwedPence'])}")
+    if not cds.live():
+        return messages.text("Your invoice PDF is ready. Live sending is off in this demo, so it stayed on AWS.")
+    return messages.text(f"I've sent the invoice for {inv.get('debtorName')} as a PDF.")
+
+
+def send_statement_pdf(business_id: str, to_number: str) -> dict:
+    """Render a designed statement of all open invoices and send it as a WhatsApp document."""
+    biz = db.get_business(business_id)
+    invoices = db.list_invoices_by_business(business_id)
+    open_ = [i for i in invoices if i.get("status") in flows.OPEN_STATUSES]
+    s = flows.portfolio_summary(invoices)
+    pdf = documents.statement_pdf(biz, open_, s)
+    cds.send_whatsapp_document(to_number, pdf, "statement.pdf",
+                               caption=f"Statement - {config.gbp(s['totalOwedPence'])} outstanding")
+    if not cds.live():
+        return messages.text("Your statement PDF is ready. Live sending is off in this demo, so it stayed on AWS.")
+    return messages.text(f"I've sent your statement as a PDF, {config.gbp(s['totalOwedPence'])} outstanding.")

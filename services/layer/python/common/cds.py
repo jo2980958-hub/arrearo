@@ -94,6 +94,27 @@ def send_whatsapp_raw(to: str, message: dict) -> str:
     return resp["messageId"]
 
 
+def send_whatsapp_document(to: str, data: bytes, filename: str, caption: Optional[str] = None,
+                           bucket: Optional[str] = None) -> str:
+    """Send a file (a PDF invoice, statement or letter) as a WhatsApp document: stage it
+    in S3, register it with PostWhatsAppMessageMedia for a media id, then send it. Valid
+    only inside the 24h window. Returns the wamid (or a dry-run id when SEND_MODE != live)."""
+    if not live():
+        log.info("DRY-RUN whatsapp document to=%s file=%s (%d bytes)", wa_id(to), filename, len(data))
+        return f"dry-run-{uuid.uuid4().hex[:12]}"
+    bucket = bucket or os.environ.get("MEDIA_BUCKET", "")
+    key = f"outbound/{uuid.uuid4().hex}/{filename}"
+    client("s3").put_object(Bucket=bucket, Key=key, Body=data, ContentType="application/pdf")
+    media_id = client("socialmessaging").post_whatsapp_message_media(
+        originationPhoneNumberId=config.ORIGINATION_PHONE_NUMBER_ID,
+        sourceS3File={"bucketName": bucket, "key": key},
+    )["mediaId"]
+    doc = {"type": "document", "document": {"id": media_id, "filename": filename}}
+    if caption:
+        doc["document"]["caption"] = caption[:1024]
+    return send_whatsapp_raw(to, doc)
+
+
 def fetch_whatsapp_media(media_id: str, bucket: str, key: str) -> dict:
     """Ask the service to write an inbound media file to S3. The call does not
     return the bytes: it returns {mimeType, fileSize}; read the object from S3."""

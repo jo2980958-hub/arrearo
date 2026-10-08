@@ -126,7 +126,7 @@ def chase_invoice(invoice_id: str, actor: str = "agent") -> dict:
 
 def send_lba(invoice_id: str, text: Optional[str] = None, actor: str = "owner") -> dict:
     """Draft (or take the owner's edited) LBA, scan it, email it with the PDF."""
-    from common import pdf
+    from common import documents
     inv = db.get_invoice(invoice_id)
     biz = db.get_business(inv["businessId"])
     debtor = db.get_debtor(db.debtor_key(inv["debtorName"], inv.get("debtorCompanyNumber")))
@@ -149,7 +149,7 @@ def send_lba(invoice_id: str, text: Optional[str] = None, actor: str = "owner") 
     db.add_event(invoice_id, "lba_drafted", "system", "agent", {"protocol": protocol, "text": text})
     if not inv.get("debtorEmail"):
         return {"sent": False, "reason": "no_email", "text": text, "protocol": protocol}
-    pdf_bytes = pdf.text_pdf(f"Letter Before Action: {inv.get('reference') or inv['invoiceId'][:8]}", text)
+    pdf_bytes = documents.lba_pdf(biz, inv, text)
     mid = cds.send_email(inv["debtorEmail"], f"Letter Before Action: {biz['name']} / invoice {inv.get('reference') or ''}".strip(),
                          "Please find our Letter Before Action attached. The full text is below.\n\n" + text,
                          attachment={"filename": "Letter-Before-Action.pdf", "content": pdf_bytes,
