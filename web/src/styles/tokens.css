@@ -1,0 +1,50 @@
+:root {
+  /* paper & ink: a ledger, not a SaaS template */
+  --paper: #f3f0e6;
+  --paper-2: #ebe7da;
+  --card: #fffdf8;
+  --ink: #101c17;
+  --ink-2: #3f4d46;
+  --ink-3: #66726b;
+  --line: #e3ddcd;
+  --line-2: #d1c9b5;
+
+  /* primary: bottle green */
+  --green-950: #0a1713;
+  --green-900: #0e241d;
+  --green-800: #0b3d31;
+  --green-700: #0d5844;
+  --green-600: #137258;
+  --green-200: #bfe0d2;
+  --green-100: #dcefe5;
+  --green-50: #edf6f0;
+
+  /* interest & money-in-motion: copper */
+  --copper-700: #9a4210;
+  --copper-600: #b9531a;
+  --copper-500: #d9772b;
+  --copper-100: #f9e6d2;
+  --copper-50: #fcf2e6;
+
+  --red-700: #a3271e;
+  --red-100: #f7dcd8;
+  --amber-700: #835400;
+  --amber-100: #f7e9c2;
+  --plum-700: #66367a;
+  --plum-100: #eadff1;
+  --slate-700: #3b4b5c;
+  --slate-100: #dfe6ec;
+
+  --font-ui: 'Geist Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces Variable', Georgia, 'Times New Roman', serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 18px;
+  --shadow-1: 0 1px 0 rgba(16, 28, 23, 0.04), 0 1px 2px rgba(16, 28, 23, 0.05);
+  --shadow-2: 0 1px 0 rgba(16, 28, 23, 0.04), 0 8px 24px -8px rgba(16, 28, 23, 0.16);
+  --shadow-3: 0 24px 64px -16px rgba(10, 23, 19, 0.35);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --sidebar-w: 252px;
+}
