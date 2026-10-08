@@ -6,6 +6,7 @@ import base64
 import json
 import logging
 import re
+from datetime import date
 
 from agent import draft as drafter
 from common import config, db, flows
@@ -94,7 +95,7 @@ def health(event, params):
 def get_me(event, params):
     c = claims_of(event)
     biz = current_business(event, required=False)
-    rate, _, base = engine.statutory_rate_for(__import__("datetime").date.today())
+    rate, _, base = engine.statutory_rate_for(date.today())
     return 200, {"user": {"sub": c.get("sub"), "email": c.get("email")}, "business": biz,
                  "brand": config.BRAND, "statutoryRatePct": rate, "baseRatePct": base}
 
