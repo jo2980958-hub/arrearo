@@ -37,6 +37,7 @@ SCHEMAS = {
                                [("whatsappNumber", "HASH"), ("createdAt#messageId", "RANGE")], [], []),
     config.TBL_EVENTS: ([("invoiceId", "S"), ("createdAt#seq", "S")],
                         [("invoiceId", "HASH"), ("createdAt#seq", "RANGE")], [], []),
+    config.TBL_WA_SESSIONS: ([("waNumber", "S")], [("waNumber", "HASH")], [], []),
 }
 
 
