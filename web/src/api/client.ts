@@ -161,7 +161,8 @@ const liveApi: ArrearoApi = {
     return normaliseMe(await request<unknown>('/me'));
   },
   async updateMe(patch) {
-    return normaliseMe(await request<unknown>('/me', { method: 'PATCH', body: JSON.stringify(patch) }));
+    await request<unknown>('/me', { method: 'PUT', body: JSON.stringify(patch) });
+    return normaliseMe(await request<unknown>('/me'));
   },
   async listInvoices() {
     return list<Raw>(await request<unknown>('/invoices'), ['invoices', 'items', 'Items']).map(normaliseInvoice);
@@ -179,18 +180,20 @@ const liveApi: ArrearoApi = {
     return normaliseInvoice((d.invoice as Raw) ?? d);
   },
   async chase(id, body) {
-    const d = await request<Raw>(`/invoices/${enc(id)}/chase`, {
+    // backend contract: {mode:"draft"|"send", message?}; returns {draft,sent,...}, not an invoice
+    await request<Raw>(`/invoices/${enc(id)}/chase`, {
       method: 'POST',
-      body: JSON.stringify(body ? { body } : {}),
+      body: JSON.stringify({ mode: 'send', ...(body ? { message: body } : {}) }),
     });
-    return normaliseInvoice((d.invoice as Raw) ?? d);
+    return liveApi.getInvoice(id);
   },
   async sendLba(id, body) {
-    const d = await request<Raw>(`/invoices/${enc(id)}/lba`, {
+    // backend contract: {mode:"draft"|"send", text?}
+    await request<Raw>(`/invoices/${enc(id)}/lba`, {
       method: 'POST',
-      body: JSON.stringify({ approve: true, ...(body ? { body } : {}) }),
+      body: JSON.stringify({ mode: 'send', ...(body ? { text: body } : {}) }),
     });
-    return normaliseInvoice((d.invoice as Raw) ?? d);
+    return liveApi.getInvoice(id);
   },
   async events(id) {
     const e = list<InvoiceEvent>(await request<unknown>(`/invoices/${enc(id)}/events`), ['events', 'items', 'Items']);
