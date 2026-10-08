@@ -4,6 +4,7 @@ import { demoApi } from './demo';
 import type {
   Business,
   Debtor,
+  Draft,
   Invoice,
   InvoiceEvent,
   InvoicePatch,
@@ -169,7 +170,33 @@ const liveApi: ArrearoApi = {
   },
   async getInvoice(id) {
     const d = await request<Raw>(`/invoices/${enc(id)}`);
-    return normaliseInvoice((d.invoice as Raw) ?? d);
+    const inv = normaliseInvoice((d.invoice as Raw) ?? d);
+    // Populate the agent's composed, compliance-checked chase draft so the detail
+    // page can show it for approval (the backend drafts on demand, not on the invoice).
+    if (inv.status && ['due', 'chasing', 'escalated'].includes(inv.status)) {
+      try {
+        const c = await request<Raw>(`/invoices/${enc(id)}/chase`, {
+          method: 'POST',
+          body: JSON.stringify({ mode: 'draft' }),
+        });
+        const dr = (c.draft ?? {}) as Record<string, unknown>;
+        if (dr.message) {
+          const draft: Draft = {
+            draftId: 'chase-' + id,
+            kind: dr.channel === 'email' ? 'email_chase' : 'whatsapp_chase',
+            body: String(dr.message),
+            status: 'pending',
+            complianceOk: true,
+            stage: typeof dr.stage === 'string' ? dr.stage : undefined,
+            createdAt: new Date().toISOString(),
+          };
+          inv.drafts = [draft];
+        }
+      } catch {
+        /* draft is best-effort; the detail page still works without it */
+      }
+    }
+    return inv;
   },
   async createInvoice(input) {
     const d = await request<Raw>('/invoices', { method: 'POST', body: JSON.stringify(input) });
