@@ -321,8 +321,8 @@ def claim_message(message_id: str, ttl_days: int = 7) -> bool:
 
 # ── events (audit timeline) ─────────────────────────────────────────────────
 def add_event(invoice_id: str, type_: str, channel: str = "system", actor: str = "system",
-              detail: Optional[dict] = None) -> dict:
-    created = now_iso()
+              detail: Optional[dict] = None, at: Optional[str] = None) -> dict:
+    created = at or now_iso()
     item = {"invoiceId": invoice_id, "createdAt#seq": f"{created}#{uuid.uuid4().hex[:6]}",
             "type": type_, "channel": channel, "actor": actor, "detail": detail or {}, "createdAt": created}
     return _put(config.TBL_EVENTS, item)
