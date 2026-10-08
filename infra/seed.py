@@ -78,7 +78,7 @@ def main():
                          {"riskBand": d["riskBand"], "avgDaysToPay": d["avgDaysToPay"], "source": d["source"]} if d
                          else {"riskBand": "unknown", "source": "unknown"}, at=days_ago(age - 1, 11))
         if s["status"] == "due":
-            db.add_event(i, "due", "system", "system", {}, at=days_ago(0, 6))
+            db.add_event(i, "due", "system", "system", {}, at=days_ago(0, 0))
         if s["status"] == "promised":
             db.add_event(i, "chased", "email", "agent", {"sent": True, "stage": "first_chase"}, at=days_ago(8))
             db.add_event(i, "replied", "email", "debtor", {"intent": "promise_to_pay"}, at=days_ago(6))

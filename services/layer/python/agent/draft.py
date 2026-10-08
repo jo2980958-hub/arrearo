@@ -25,7 +25,7 @@ RULES = (
     "Hard rules: use ONLY the figures in FACTS, copied exactly, never calculate or round. Never imply criminal "
     "proceedings, the police, fraud, arrest, bailiffs, or any official or government authority. Do not use the words "
     "criminal, police, fraud, prosecution, bailiff, summons, warrant, writ or CCJ. Never style the message as a court "
-    "or official document. Write as the business, in the first person plural. British English. No markdown."
+    "or official document. Write as the business, in the first person plural. British English. No markdown, no asterisks, no subject line."
 )
 
 
@@ -73,14 +73,23 @@ def _must_cite(facts: dict, text: str, keys=("totalNowOwed", "originalAmount")) 
     return [engine.Violation(code="facts", message="draft omits a required figure", span=m) for m in missing]
 
 
+def _tidy(text: str) -> str:
+    """Models sometimes add markdown or a Subject line despite the prompt; strip both."""
+    text = text.replace("**", "").replace("__", "")
+    lines = text.strip().splitlines()
+    if lines and lines[0].lower().startswith("subject:"):
+        lines = lines[1:]
+    return "\n".join(lines).strip()
+
+
 def _guarded(system: str, prompt: str, facts: dict, cite_keys, max_tokens=900) -> str:
-    text = llm.converse_text(config.BEDROCK_REASONING_MODEL, system, prompt, max_tokens)
+    text = _tidy(llm.converse_text(config.BEDROCK_REASONING_MODEL, system, prompt, max_tokens))
     problems = engine.compliance_scan(text) + _must_cite(facts, text, cite_keys)
     if problems:
         retry = (prompt + "\n\nYour previous draft was rejected for: "
                  + "; ".join(f"{p.message} ({p.span})" for p in problems)
                  + ". Rewrite it fixing exactly that, quoting the figures from FACTS exactly.")
-        text = llm.converse_text(config.BEDROCK_REASONING_MODEL, system, retry, max_tokens)
+        text = _tidy(llm.converse_text(config.BEDROCK_REASONING_MODEL, system, retry, max_tokens))
         problems = engine.compliance_scan(text) + _must_cite(facts, text, cite_keys)
         if problems:
             raise ComplianceBlock(problems, text)

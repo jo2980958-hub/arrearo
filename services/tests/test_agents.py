@@ -108,3 +108,10 @@ def test_digest_totals_come_from_code(derived):
     llm.set_client(fake)
     assert draft.draft_digest(biz, [inv]).startswith("Outstanding")
     assert "£2,500.00" in fake.calls[0]["messages"][0]["content"][0]["text"]
+
+
+def test_markdown_and_subject_line_are_stripped(derived):
+    inv, biz = derived
+    llm.set_client(FakeBedrock(texts=["Subject: Overdue\n\n**" + good(inv) + "**"]))
+    out = draft.draft_chase(inv, biz)
+    assert "**" not in out and not out.lower().startswith("subject")
