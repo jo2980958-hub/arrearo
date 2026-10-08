@@ -296,6 +296,15 @@ Resources:
             ApiId: !Ref HttpApi
             Path: /{proxy+}
             Method: ANY
+        # CORS preflight must bypass the JWT authorizer, or browsers get a 401 on
+        # OPTIONS and every authenticated fetch fails. The Lambda returns 204 for OPTIONS.
+        Preflight:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /{proxy+}
+            Method: OPTIONS
+            Auth: {Authorizer: NONE}
       Policies:
         - Statement: [{Effect: Allow, Action: [bedrock:InvokeModel], Resource: [!Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${SonnetProfileId}",
                !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${HaikuProfileId}",

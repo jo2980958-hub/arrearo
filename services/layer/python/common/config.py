@@ -27,7 +27,9 @@ WHATSAPP_SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:854924711083:brownshift-whatsapp
 WHATSAPP_SENDER_DISPLAY = "+233 55 906 2312"
 
 # SES — sender identity (arrearo.com once its DKIM verifies). Overridable by env.
-SES_SENDER = os.environ.get("SES_SENDER", "billing@arrearo.com")
+# arrearo.com couldn't be registered (account hold); the verified sender in this
+# account is kasamafo.africa (DKIM SUCCESS). Live send: SendMode=live + verified recipient.
+SES_SENDER = os.environ.get("SES_SENDER", "billing@kasamafo.africa")
 
 # ── DynamoDB tables (prefix is APP_SLUG, stable) ────────────────────────────
 TBL_BUSINESSES = f"{APP_SLUG}-businesses"
