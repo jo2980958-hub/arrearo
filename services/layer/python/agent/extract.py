@@ -111,3 +111,36 @@ def extract_from_text(text: str) -> dict:
         [{"text": f"Extract the invoice fields from this message. Dates as YYYY-MM-DD.\n\n{text}"}],
         INVOICE_TOOL)
     return normalise(raw)
+
+
+def extract_from_pdf(pdf_bytes: bytes) -> dict:
+    """Read a PDF invoice via the same tool-extraction path as a photo.
+
+    Claude on Bedrock takes a PDF as a document content block. Everything else,
+    the system prompt, the tool, and normalise, is identical to the image path.
+    """
+    raw = llm.converse_tool(
+        config.BEDROCK_EXTRACT_MODEL, SYSTEM,
+        [{"document": {"format": "pdf", "name": "invoice", "source": {"bytes": pdf_bytes}}},
+         {"text": "Extract the invoice fields. Dates as YYYY-MM-DD. Amounts as plain numbers."}],
+        INVOICE_TOOL)
+    return normalise(raw)
+
+
+def summary_line(fields: dict) -> str:
+    """A short, deterministic one-line summary built only from normalised fields.
+
+    Never calls the model. Missing fields degrade gracefully: an unreadable
+    amount, debtor or date is named rather than left blank or crashing gbp.
+    """
+    debtor = (fields.get("debtorName") or "").strip() or "an unknown debtor"
+    amount_pence = fields.get("amountPence")
+    amount = config.gbp(amount_pence) if amount_pence is not None else "an unknown amount"
+    line = f"Invoice to {debtor} for {amount}"
+    invoice_date = (fields.get("invoiceDate") or "").strip()
+    if invoice_date:
+        line += f" dated {invoice_date}"
+    reference = (fields.get("reference") or "").strip()
+    if reference:
+        line += f", ref {reference}"
+    return line
