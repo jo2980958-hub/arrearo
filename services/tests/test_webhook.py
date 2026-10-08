@@ -59,9 +59,12 @@ def test_duplicate_delivery_is_ignored(invoice):
     assert again["skipped"] == "duplicate" and len(db.list_messages("447700900123")) == 1
 
 
-def test_unknown_sender_is_logged_and_ignored():
+def test_unknown_sender_enters_the_whatsapp_app():
+    # A number that is neither an owner nor a known debtor now meets the app:
+    # a logged-out "hello" gets the welcome + Log in, not a silent drop.
     [r] = webhook.handler(text_msg("wamid.U", "447700999999", "hello"))["results"]
-    assert r["skipped"] == "unknown_sender"
+    assert r["role"] == "app" and r["replies"] >= 1
+    assert db.normalise_e164("447700999999") == "+447700999999"
 
 
 def test_owner_invoice_photo_is_fetched_extracted_and_stored(business, monkeypatch):

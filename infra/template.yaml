@@ -123,6 +123,16 @@ Resources:
         AttributeName: ttl
         Enabled: true
 
+  WaSessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: arrearo-wa-sessions   # WhatsApp login/link + navigation state, keyed by number
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: waNumber, AttributeType: S}
+      KeySchema:
+        - {AttributeName: waNumber, KeyType: HASH}
+
   # ── S3 ────────────────────────────────────────────────────────────────────
   MediaBucket:
     Type: AWS::S3::Bucket
@@ -272,6 +282,7 @@ Resources:
         - DynamoDBCrudPolicy: {TableName: !Ref DebtorsTable}
         - DynamoDBCrudPolicy: {TableName: !Ref ConversationsTable}
         - DynamoDBCrudPolicy: {TableName: !Ref EventsTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref WaSessionsTable}
         - S3CrudPolicy: {BucketName: !Ref MediaBucket}
 
   ApiFunction:

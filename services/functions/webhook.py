@@ -14,6 +14,8 @@ import re
 
 from agent import classify, extract
 from common import cds, config, db, flows
+from wa import inbound as wa_inbound
+from wa import router as wa_router
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -35,6 +37,7 @@ def parse_sns_event(event):
                 yield {"kind": "message", "from": m["from"], "wamid": m["id"], "type": kind,
                        "text": (m.get("text") or {}).get("body") or (media or {}).get("caption"),
                        "media_id": (media or {}).get("id"), "mime": (media or {}).get("mime_type"),
+                       "interactive": wa_inbound.extract_interactive(m),
                        "name": ((v.get("contacts") or [{}])[0].get("profile") or {}).get("name"),
                        "ts": int(m["timestamp"]), "aws_message_id": outer.get("messageId")}
             for s in v.get("statuses", []):
@@ -55,6 +58,21 @@ def reply(to: str, body: str, invoice_id=None, reply_to=None):
 
 def money(p):
     return config.gbp(p) if p is not None else "unknown"
+
+
+def handle_app(m: dict, number: str) -> dict:
+    """A number that is neither a registered owner nor a known debtor talks to the
+    Arrearo WhatsApp app: OTP login, then menu navigation. wa.router returns a list of
+    Replies (Meta message dicts); we send each with cds.send_whatsapp_raw."""
+    inter = m.get("interactive") or {}
+    inbound = {"text": m.get("text"), "tap_id": inter.get("id"), "tap_title": inter.get("title"),
+               "media": None}
+    if m.get("type") in ("image", "document") and m.get("media_id"):
+        inbound["media"] = {"media_id": m["media_id"], "mime": m.get("mime"),
+                            "bucket": MEDIA_BUCKET, "key": f"inbound/app/{number}/{m['media_id']}"}
+    replies = wa_router.handle(number, inbound)
+    ids = [cds.send_whatsapp_raw(m["from"], r) for r in replies]
+    return {"wamid": m["wamid"], "role": "app", "replies": len(replies), "replyIds": ids}
 
 
 def handle_owner(biz: dict, m: dict) -> str:
@@ -159,8 +177,7 @@ def handle_message(m: dict) -> dict:
     else:
         open_ = db.list_open_invoices_by_debtor_whatsapp(number)
         if not open_:
-            log.info("message from unregistered number %s", number)
-            return {"wamid": m["wamid"], "skipped": "unknown_sender"}
+            return handle_app(m, number)   # not an owner or debtor: the WhatsApp app (login + menu)
         role, answer, inv_id = "debtor", handle_debtor(open_[0], m), open_[0]["invoiceId"]
     mid = reply(m["from"], answer, inv_id, reply_to=m["wamid"])
     return {"wamid": m["wamid"], "role": role, "reply": answer, "replyId": mid}
