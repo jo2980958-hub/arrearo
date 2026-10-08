@@ -102,7 +102,7 @@ function chaseText(inv: Invoice, stage: 'first' | 'second' | 'final', contact: s
   return (
     `${lead}\n\nInvoice ${inv.reference} for ${pounds(inv.amountPence)} was due on ${fmtDate(
       inv.agreedDueDate,
-    )}${inv.daysLate > 0 ? ` and is now ${inv.daysLate} days overdue` : ' and falls due today'}.\n\n` +
+    )}${inv.daysLate > 0 ? ` and is now ${inv.daysLate} ${inv.daysLate === 1 ? 'day' : 'days'} overdue` : ' and falls due today'}.\n\n` +
     `Under the Late Payment of Commercial Debts (Interest) Act 1998, statutory interest of ${rate}% a year applies (${perDay} a day). ` +
     `So far that is ${pounds(inv.interestAccruedPence)}, plus a fixed recovery sum of ${pounds(inv.fixedRecoverySumPence)}.\n\n` +
     `Total now due: ${pounds(inv.totalOwedPence)}.\n\n` +
@@ -117,11 +117,11 @@ function lbaText(inv: Invoice): string {
     `Dear ${inv.debtorName},\n\n` +
     `We write on behalf of ${business.name} about invoice ${inv.reference} dated ${fmtDate(inv.invoiceDate)} for ${pounds(inv.amountPence)}, ` +
     `which fell due on ${fmtDate(inv.agreedDueDate)} and remains unpaid after ${inv.daysLate} days.\n\n` +
-    `The sums now due are:\n` +
-    `  Invoice principal            ${pounds(inv.amountPence)}\n` +
-    `  Statutory interest to date   ${pounds(inv.interestAccruedPence)}   (${rate}% a year, 8% above the Bank of England base rate)\n` +
-    `  Fixed recovery sum           ${pounds(inv.fixedRecoverySumPence)}\n` +
-    `  Total                        ${pounds(inv.totalOwedPence)}\n\n` +
+    `The sums now due are:\n\n` +
+    `- Invoice principal: ${pounds(inv.amountPence)}\n` +
+    `- Statutory interest to date: ${pounds(inv.interestAccruedPence)} (${rate}% a year, 8% above the Bank of England base rate)\n` +
+    `- Fixed recovery sum: ${pounds(inv.fixedRecoverySumPence)}\n` +
+    `- Total: ${pounds(inv.totalOwedPence)}\n\n` +
     `Interest continues to accrue at ${pounds((inv.amountPence * rate) / 100 / 365)} a day under the Late Payment of Commercial Debts (Interest) Act 1998.\n\n` +
     `Unless the total is paid in cleared funds within 14 days of the date of this letter, ${business.name} may issue a claim in the County Court without further notice and will seek its costs and further interest. ` +
     `If you dispute any part of this debt, please tell us in writing within the same period, with your reasons and any supporting documents.\n\n` +
@@ -270,7 +270,11 @@ function scored(rec: Rec, whenAgo: number) {
 
 function chased(rec: Rec, whenAgo: number, stage: 'first' | 'second' | 'final', contact: string) {
   const { inv } = rec;
-  const body = chaseText({ ...inv, daysLate: Math.max(0, inv.daysLate - whenAgo) }, stage, contact);
+  const past = deriveMoney(
+    { amountPence: inv.amountPence, invoiceDate: inv.invoiceDate, deliveryDate: inv.deliveryDate, agreedDueDate: inv.agreedDueDate, debtorType: inv.debtorType, paidAt: null },
+    new Date(now() - whenAgo * DAY),
+  );
+  const body = chaseText({ ...inv, ...past }, stage, contact);
   rec.events.push(
     ev(inv.invoiceId, 'chased', 'whatsapp', 'agent', at(whenAgo, '09:30'), { stage, body }),
   );
@@ -310,7 +314,7 @@ function seedAll() {
     chased(r, 40, 'final', 'Priya');
     r.events.push(
       ev(r.inv.invoiceId, 'lba_drafted', 'system', 'agent', at(0, '07:45'), {
-        reason: 'No payment 24 days after the promised date',
+        reason: 'No payment has arrived since the promised date passed',
       }),
     );
     r.drafts.push({

@@ -10,11 +10,11 @@ const long = new Intl.DateTimeFormat('en-GB', {
 export function fmtDate(iso?: string | null): string {
   if (!iso) return '—';
   const d = new Date(iso.length === 10 ? `${iso}T00:00:00` : iso);
-  return Number.isNaN(d.getTime()) ? '—' : dmy.format(d);
+  return Number.isNaN(d.getTime()) ? '—' : dmy.format(d).replace('Sept', 'Sep');
 }
 
 export function fmtDayMonth(iso: string): string {
-  return dm.format(new Date(iso));
+  return dm.format(new Date(iso)).replace('Sept', 'Sep');
 }
 
 export function fmtTime(iso: string): string {

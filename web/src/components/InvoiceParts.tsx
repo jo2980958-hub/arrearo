@@ -163,7 +163,7 @@ export function EventList({ events }: { events: InvoiceEvent[] }) {
             <div>
               <b>{x.title}</b>
               <div className="when">{fmtDateTime(e.createdAt)}</div>
-              {x.quote && <div className="quote">{x.quote}</div>}
+              {x.quote && <div className={`quote ${x.quote.length < 140 ? 'short' : ''}`}>{x.quote}</div>}
             </div>
           </li>
         );
