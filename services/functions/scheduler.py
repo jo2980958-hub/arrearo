@@ -67,8 +67,24 @@ def daily_digest() -> dict:
     return {"digests": sent}
 
 
+def selfcheck() -> dict:
+    """Diagnostic: does this runtime's boto3 know the CDS operations we call?"""
+    import boto3
+    sm = boto3.client("socialmessaging", region_name="us-east-1")
+    ses = boto3.client("sesv2", region_name="us-east-1")
+    attach = "Attachments" in ses.meta.service_model.shape_for("SimpleEmailContent").members \
+        if "SimpleEmailContent" in ses.meta.service_model.shape_names else \
+        "Attachments" in ses.meta.service_model.shape_for("Message").members
+    return {"boto3": boto3.__version__,
+            "send_whatsapp_message": hasattr(sm, "send_whatsapp_message"),
+            "get_whatsapp_message_media": hasattr(sm, "get_whatsapp_message_media"),
+            "ses_simple_attachments": attach, "send_mode": "live" if cds.live() else "dry"}
+
+
 def handler(event, context=None):
     task = (event or {}).get("task", "due_sweep")
+    if task == "selfcheck":
+        return selfcheck()
     out = daily_digest() if task == "digest" else due_sweep()
     log.info("scheduler %s: %s", task, out)
     return out
