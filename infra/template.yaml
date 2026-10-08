@@ -1,0 +1,382 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Arrearo - WhatsApp-native late-payment recovery agent for UK SMEs (serverless backend)
+
+Parameters:
+  SendMode:
+    Type: String
+    Default: dry
+    AllowedValues: [dry, live]
+    Description: >-
+      dry = outbound WhatsApp/SES calls are logged, not sent. live = real sends.
+      The owner flips this once a WhatsApp template and an SES identity are approved.
+  SesSender:
+    Type: String
+    Default: billing@arrearo.com
+  Brand:
+    Type: String
+    Default: Arrearo
+  WhatsAppTopicArn:
+    Type: String
+    Default: arn:aws:sns:us-east-1:854924711083:brownshift-whatsapp-events
+  SonnetProfileId:
+    Type: String
+    Default: us.anthropic.claude-sonnet-4-5-20250929-v1:0
+  HaikuProfileId:
+    Type: String
+    Default: us.anthropic.claude-haiku-4-5-20251001-v1:0
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [x86_64]
+    MemorySize: 512
+    Timeout: 30
+    Layers: [!Ref CommonLayer]
+    Environment:
+      Variables:
+        SEND_MODE: !Ref SendMode
+        BRAND: !Ref Brand
+        SES_SENDER: !Ref SesSender
+        MEDIA_BUCKET: !Ref MediaBucket
+        POWERTOOLS_LOG_LEVEL: INFO
+
+Resources:
+  # ── DynamoDB (on-demand) ──────────────────────────────────────────────────
+  BusinessesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: arrearo-businesses
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: businessId, AttributeType: S}
+        - {AttributeName: cognitoSub, AttributeType: S}
+        - {AttributeName: whatsappNumber, AttributeType: S}
+      KeySchema:
+        - {AttributeName: businessId, KeyType: HASH}
+      GlobalSecondaryIndexes:
+        - IndexName: byCognitoSub
+          KeySchema: [{AttributeName: cognitoSub, KeyType: HASH}]
+          Projection: {ProjectionType: ALL}
+        - IndexName: byWhatsapp
+          KeySchema: [{AttributeName: whatsappNumber, KeyType: HASH}]
+          Projection: {ProjectionType: ALL}
+
+  InvoicesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: arrearo-invoices
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: invoiceId, AttributeType: S}
+        - {AttributeName: businessId, AttributeType: S}
+        - {AttributeName: createdAt, AttributeType: S}
+        - {AttributeName: debtorWhatsapp, AttributeType: S}
+      KeySchema:
+        - {AttributeName: invoiceId, KeyType: HASH}
+      GlobalSecondaryIndexes:
+        - IndexName: byBusiness
+          KeySchema:
+            - {AttributeName: businessId, KeyType: HASH}
+            - {AttributeName: createdAt, KeyType: RANGE}
+          Projection: {ProjectionType: ALL}
+        - IndexName: byDebtorWhatsapp
+          KeySchema:
+            - {AttributeName: debtorWhatsapp, KeyType: HASH}
+            - {AttributeName: createdAt, KeyType: RANGE}
+          Projection: {ProjectionType: ALL}
+
+  DebtorsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: arrearo-debtors
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: debtorKey, AttributeType: S}
+      KeySchema:
+        - {AttributeName: debtorKey, KeyType: HASH}
+
+  ConversationsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: arrearo-conversations
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: whatsappNumber, AttributeType: S}
+        - {AttributeName: "createdAt#messageId", AttributeType: S}
+      KeySchema:
+        - {AttributeName: whatsappNumber, KeyType: HASH}
+        - {AttributeName: "createdAt#messageId", KeyType: RANGE}
+
+  EventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: arrearo-events
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - {AttributeName: invoiceId, AttributeType: S}
+        - {AttributeName: "createdAt#seq", AttributeType: S}
+      KeySchema:
+        - {AttributeName: invoiceId, KeyType: HASH}
+        - {AttributeName: "createdAt#seq", KeyType: RANGE}
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # ── S3 ────────────────────────────────────────────────────────────────────
+  MediaBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub arrearo-media-${AWS::AccountId}-${AWS::Region}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: {SSEAlgorithm: AES256}
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-inbound-media
+            Status: Enabled
+            Prefix: inbound/
+            ExpirationInDays: 90
+
+  WebBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub arrearo-web-${AWS::AccountId}-${AWS::Region}
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  WebOriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub arrearo-web-oac-${AWS::AccountId}
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  WebDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: Arrearo dashboard
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: web
+            DomainName: !GetAtt WebBucket.RegionalDomainName
+            S3OriginConfig: {OriginAccessIdentity: ""}
+            OriginAccessControlId: !GetAtt WebOriginAccessControl.Id
+        DefaultCacheBehavior:
+          TargetOriginId: web
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6   # Managed-CachingOptimized
+        CustomErrorResponses:                                    # SPA fallback
+          - {ErrorCode: 403, ResponseCode: 200, ResponsePagePath: /index.html, ErrorCachingMinTTL: 0}
+          - {ErrorCode: 404, ResponseCode: 200, ResponsePagePath: /index.html, ErrorCachingMinTTL: 0}
+
+  WebBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref WebBucket
+      PolicyDocument:
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal: {Service: cloudfront.amazonaws.com}
+            Action: s3:GetObject
+            Resource: !Sub ${WebBucket.Arn}/*
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub arn:aws:cloudfront::${AWS::AccountId}:distribution/${WebDistribution}
+
+  # ── Cognito ───────────────────────────────────────────────────────────────
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: arrearo-owners
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      AdminCreateUserConfig: {AllowAdminCreateUserOnly: true}
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 10
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      AccountRecoverySetting:
+        RecoveryMechanisms: [{Name: verified_email, Priority: 1}]
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: arrearo-dashboard
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+      PreventUserExistenceErrors: ENABLED
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 30
+      TokenValidityUnits: {AccessToken: minutes, IdToken: minutes, RefreshToken: days}
+
+  # ── Lambda layer + functions ──────────────────────────────────────────────
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: arrearo-common
+      Description: common (config, db, cds, flows), legal engine, agent modules
+      ContentUri: ../services/layer/python
+      CompatibleRuntimes: [python3.12]
+    Metadata:
+      BuildMethod: python3.12     # copies python/ as-is; no requirements.txt
+
+  WebhookFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: arrearo-webhook
+      CodeUri: ../services/functions
+      Handler: webhook.handler
+      Timeout: 90
+      Description: WhatsApp inbound (SNS) - parse, fetch media, extract, classify, store, reply
+      Events:
+        WhatsApp:
+          Type: SNS
+          Properties:
+            Topic: !Ref WhatsAppTopicArn
+      Policies:
+        - Statement: [{Effect: Allow, Action: [bedrock:InvokeModel], Resource: [!Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${SonnetProfileId}",
+               !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${HaikuProfileId}",
+               "arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0",
+               "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"]}]
+        - Statement: [{Effect: Allow, Action: ["social-messaging:SendWhatsAppMessage", "social-messaging:GetWhatsAppMessageMedia"],
+              Resource: !Sub "arn:aws:social-messaging:${AWS::Region}:${AWS::AccountId}:phone-number-id/*"}]
+        - Statement: [{Effect: Allow, Action: ["ses:SendEmail", "ses:SendRawEmail"],
+              Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*"}]
+        - DynamoDBCrudPolicy: {TableName: !Ref BusinessesTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref InvoicesTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref DebtorsTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref ConversationsTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref EventsTable}
+        - S3CrudPolicy: {BucketName: !Ref MediaBucket}
+
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: arrearo-api
+      CodeUri: ../services/functions
+      Handler: api.handler
+      Timeout: 29
+      Description: HTTP API router (SPEC section 6)
+      Events:
+        Health:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /health
+            Method: GET
+            Auth: {Authorizer: NONE}
+        Proxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /{proxy+}
+            Method: ANY
+      Policies:
+        - Statement: [{Effect: Allow, Action: [bedrock:InvokeModel], Resource: [!Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${SonnetProfileId}",
+               !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${HaikuProfileId}",
+               "arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0",
+               "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"]}]
+        - Statement: [{Effect: Allow, Action: ["social-messaging:SendWhatsAppMessage"], Resource: !Sub "arn:aws:social-messaging:${AWS::Region}:${AWS::AccountId}:phone-number-id/*"}]
+        - Statement: [{Effect: Allow, Action: ["ses:SendEmail", "ses:SendRawEmail"], Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*"}]
+        - DynamoDBCrudPolicy: {TableName: !Ref BusinessesTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref InvoicesTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref DebtorsTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref ConversationsTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref EventsTable}
+        - S3ReadPolicy: {BucketName: !Ref MediaBucket}
+
+  SchedulerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: arrearo-scheduler
+      CodeUri: ../services/functions
+      Handler: scheduler.handler
+      Timeout: 300
+      Description: Hourly due-date sweep + daily owner digest
+      Events:
+        HourlyDueSweep:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: rate(1 hour)
+            Input: '{"task": "due_sweep"}'
+        DailyDigest:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: cron(0 8 * * ? *)
+            ScheduleExpressionTimezone: Europe/London
+            Input: '{"task": "digest"}'
+      Policies:
+        - Statement: [{Effect: Allow, Action: [bedrock:InvokeModel], Resource: [!Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${SonnetProfileId}",
+               !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:inference-profile/${HaikuProfileId}",
+               "arn:aws:bedrock:*::foundation-model/anthropic.claude-sonnet-4-5-20250929-v1:0",
+               "arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"]}]
+        - Statement: [{Effect: Allow, Action: ["social-messaging:SendWhatsAppMessage"], Resource: !Sub "arn:aws:social-messaging:${AWS::Region}:${AWS::AccountId}:phone-number-id/*"}]
+        - Statement: [{Effect: Allow, Action: ["ses:SendEmail", "ses:SendRawEmail"], Resource: !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/*"}]
+        - DynamoDBCrudPolicy: {TableName: !Ref BusinessesTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref InvoicesTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref DebtorsTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref ConversationsTable}
+        - DynamoDBCrudPolicy: {TableName: !Ref EventsTable}
+
+  # ── API Gateway HTTP API + Cognito JWT authorizer ─────────────────────────
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: ["*"]
+        AllowHeaders: [authorization, content-type]
+        AllowMethods: [GET, POST, PUT, PATCH, DELETE, OPTIONS]
+        MaxAge: 600
+      Auth:
+        DefaultAuthorizer: CognitoJwt
+        Authorizers:
+          CognitoJwt:
+            IdentitySource: $request.header.Authorization
+            JwtConfiguration:
+              issuer: !Sub https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}
+              audience: [!Ref UserPoolClient]
+
+Outputs:
+  ApiUrl:
+    Description: HTTP API base URL
+    Value: !Sub https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com
+  CognitoUserPoolId:
+    Value: !Ref UserPool
+  CognitoClientId:
+    Value: !Ref UserPoolClient
+  MediaBucket:
+    Value: !Ref MediaBucket
+  WebBucket:
+    Value: !Ref WebBucket
+  WebUrl:
+    Description: CloudFront URL for the dashboard
+    Value: !Sub https://${WebDistribution.DomainName}
+  WebDistributionId:
+    Value: !Ref WebDistribution
+  WebhookFunctionName:
+    Value: !Ref WebhookFunction
