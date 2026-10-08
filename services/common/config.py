@@ -1,0 +1,47 @@
+"""Central configuration. Every service reads from here.
+
+APP_SLUG is the internal, stable identifier (table prefix, resource names) and
+never changes. BRAND is the display name shown to users and may be finalised
+from market research without touching any internal names.
+"""
+import os
+
+# ── identity ────────────────────────────────────────────────────────────────
+APP_SLUG = "recoup"                 # internal, STABLE — do not change
+BRAND = os.environ.get("BRAND", "Recoup")  # display name (finalise from research)
+TAGLINE = "Get paid, with the law on your side."
+
+# ── AWS ─────────────────────────────────────────────────────────────────────
+REGION = os.environ.get("AWS_REGION", "us-east-1")
+ACCOUNT_ID = "854924711083"         # Brownshift
+
+# Bedrock — inference-profile IDs (direct model IDs are rejected; use us.*)
+BEDROCK_REASONING_MODEL = "us.anthropic.claude-sonnet-4-5-20250929-v1:0"
+BEDROCK_EXTRACT_MODEL = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+# WhatsApp (AWS End User Messaging Social) — Brownshift WABA, us-east-1
+WABA_ID = "waba-fc7e800db8f4433ab28a07f47089a226"
+ORIGINATION_PHONE_NUMBER_ID = "phone-number-id-0d66a9b3b8fc463bb9bf999932643060"
+WHATSAPP_SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:854924711083:brownshift-whatsapp-events"
+WHATSAPP_SENDER_DISPLAY = "+233 55 906 2312"
+
+# SES — sender identity (set once the Route53 product domain verifies; else a
+# verified fallback). Overridable by env for the deploy.
+SES_SENDER = os.environ.get("SES_SENDER", "")   # e.g. billing@<domain>
+
+# ── DynamoDB tables (prefix is APP_SLUG, stable) ────────────────────────────
+TBL_BUSINESSES = f"{APP_SLUG}-businesses"
+TBL_INVOICES = f"{APP_SLUG}-invoices"
+TBL_DEBTORS = f"{APP_SLUG}-debtors"
+TBL_CONVERSATIONS = f"{APP_SLUG}-conversations"
+TBL_EVENTS = f"{APP_SLUG}-events"
+
+# ── money ───────────────────────────────────────────────────────────────────
+CURRENCY = "GBP"
+
+
+def gbp(pence: int) -> str:
+    """Render integer pence as a £ string."""
+    sign = "-" if pence < 0 else ""
+    p = abs(int(pence))
+    return f"{sign}£{p // 100:,}.{p % 100:02d}"

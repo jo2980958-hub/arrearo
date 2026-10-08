@@ -43,4 +43,5 @@ New project in submission window; incremental commits; AWS SDK client imported +
 Me: spec, data model, API contract, domain registration, integration, deploy, verify, self-grade, iterate.
 
 ## Status log
-- 2026-10-08 ~04:3x UTC — decision made, feasibility verified, project scaffolded, 2 research agents launched. Next: write the spec while they gather.
+- 2026-10-08 ~04:3x UTC — decision made, feasibility verified, project scaffolded, 2 research agents launched.
+- 2026-10-08 ~04:4x UTC — SPEC written (data model, legal-engine interface, API, IaC, demo). **Legal engine built + 23 tests green** (I own this — it's the moat). `common/config.py` written (concrete ARNs/model IDs; internal slug `recoup` stable, BRAND finalised later). Research agents producing high-rigor output (gov.uk-verified figures, botocore-validated CDS shapes). **Key finding:** UK gov announced 24 Mar 2026 the largest late-payment reforms in 25+ yrs — mandatory statutory interest 8%+base on all commercial contracts — a major tailwind. Next: fold research → finalise name → register domain → dispatch build agents (agent/Bedrock, CDS channels, infra, dashboard, debtors).
