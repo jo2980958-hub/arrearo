@@ -27,6 +27,21 @@ def test_statutory_rate_adds_eight():
     assert e.statutory_rate() == round(e.BASE_RATE_PCT + 8.0, 4)
 
 
+def test_statutory_rate_for_h1_2026_uses_prev_dec():
+    rate, ref, base = e.statutory_rate_for(date(2026, 3, 15))
+    assert ref == "2025-12-31" and base == 3.75 and rate == 11.75
+
+
+def test_statutory_rate_for_h2_2025_uses_jun():
+    rate, ref, base = e.statutory_rate_for(date(2025, 9, 1))
+    assert ref == "2025-06-30" and base == 4.25 and rate == 12.25
+
+
+def test_statutory_rate_for_h2_2026_uses_jun():
+    rate, ref, base = e.statutory_rate_for(date(2026, 8, 1))
+    assert ref == "2026-06-30" and rate == 11.75
+
+
 # ── due / late dates ─────────────────────────────────────────────────────────
 def test_agreed_date_wins():
     agreed = date(2026, 3, 1)

@@ -85,9 +85,40 @@ def boe_base_rate() -> tuple[float, str, str]:
 
 
 def statutory_rate(base_pct: Optional[float] = None) -> float:
-    """Statutory interest rate (%/yr) = base rate + 8%."""
+    """Statutory interest rate (%/yr) = base rate + 8% (using today's base)."""
     base = BASE_RATE_PCT if base_pct is None else base_pct
     return round(base + STATUTORY_ADDON_PCT, 4)
+
+
+# Bank of England base rate at each statutory reference date (30 Jun / 31 Dec).
+# A debt's statutory rate is FIXED by the Bank Rate on the reference date that
+# falls before it went overdue (Late Payment Order SI 2002/1675, art. 4): a debt
+# overdue in H1 uses the previous 31 Dec; one overdue in H2 uses that 30 Jun.
+# VERIFY against the Bank of England IUDBEDR history before relying beyond 2026.
+_REFERENCE_RATES = {
+    "2024-06-30": 5.25,
+    "2024-12-31": 4.75,
+    "2025-06-30": 4.25,
+    "2025-12-31": 3.75,   # -> H1 2026 debts: 11.75%
+    "2026-06-30": 3.75,   # -> H2 2026 debts: 11.75%
+}
+
+
+def _reference_date_for(overdue_date: date) -> date:
+    if overdue_date.month <= 6:
+        return date(overdue_date.year - 1, 12, 31)
+    return date(overdue_date.year, 6, 30)
+
+
+def statutory_rate_for(overdue_date: date) -> tuple[float, str, float]:
+    """The statutory rate that applies to a debt by WHEN it went overdue.
+
+    Returns (rate_pct, reference_date_iso, base_rate_pct). Falls back to the
+    current base-rate constant for reference dates not in the table.
+    """
+    ref = _reference_date_for(overdue_date)
+    base = _REFERENCE_RATES.get(ref.isoformat(), BASE_RATE_PCT)
+    return round(base + STATUTORY_ADDON_PCT, 4), ref.isoformat(), base
 
 
 def _terms_days(debtor_type: str) -> int:

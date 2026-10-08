@@ -7,9 +7,10 @@ from market research without touching any internal names.
 import os
 
 # ── identity ────────────────────────────────────────────────────────────────
-APP_SLUG = "recoup"                 # internal, STABLE — do not change
-BRAND = os.environ.get("BRAND", "Recoup")  # display name (finalise from research)
-TAGLINE = "Get paid, with the law on your side."
+APP_SLUG = "arrearo"                # internal, STABLE — do not change
+BRAND = os.environ.get("BRAND", "Arrearo")  # display name
+DOMAIN = "arrearo.com"
+TAGLINE = "The credit controller that chases your late invoices on WhatsApp and adds the interest you're legally owed."
 
 # ── AWS ─────────────────────────────────────────────────────────────────────
 REGION = os.environ.get("AWS_REGION", "us-east-1")
@@ -25,9 +26,8 @@ ORIGINATION_PHONE_NUMBER_ID = "phone-number-id-0d66a9b3b8fc463bb9bf999932643060"
 WHATSAPP_SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:854924711083:brownshift-whatsapp-events"
 WHATSAPP_SENDER_DISPLAY = "+233 55 906 2312"
 
-# SES — sender identity (set once the Route53 product domain verifies; else a
-# verified fallback). Overridable by env for the deploy.
-SES_SENDER = os.environ.get("SES_SENDER", "")   # e.g. billing@<domain>
+# SES — sender identity (arrearo.com once its DKIM verifies). Overridable by env.
+SES_SENDER = os.environ.get("SES_SENDER", "billing@arrearo.com")
 
 # ── DynamoDB tables (prefix is APP_SLUG, stable) ────────────────────────────
 TBL_BUSINESSES = f"{APP_SLUG}-businesses"
