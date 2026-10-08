@@ -148,6 +148,20 @@ def get_business_by_whatsapp(number: str) -> Optional[dict]:
     return items[0] if items else None
 
 
+def get_business_by_email(email: str) -> Optional[dict]:
+    """Resolve the Arrearo account for a WhatsApp login by its registered email.
+    Matches the business record's email case-insensitively. A business exists only
+    for an account created on the web, so this also proves the account is real."""
+    if not email:
+        return None
+    wanted = email.strip().lower()
+    for b in list_businesses():
+        for field in ("email", "contactEmail", "ownerEmail"):
+            if str(b.get(field, "")).strip().lower() == wanted:
+                return b
+    return None
+
+
 def list_businesses() -> list[dict]:
     items, start = [], None
     while True:

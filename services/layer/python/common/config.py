@@ -26,6 +26,9 @@ ORIGINATION_PHONE_NUMBER_ID = "phone-number-id-0d66a9b3b8fc463bb9bf999932643060"
 WHATSAPP_SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:854924711083:brownshift-whatsapp-events"
 WHATSAPP_SENDER_DISPLAY = "+233 55 906 2312"
 
+# Cognito user pool (web dashboard identity; the WhatsApp OTP login resolves to it)
+COGNITO_USER_POOL_ID = os.environ.get("COGNITO_USER_POOL_ID", "us-east-1_msvFwkml2")
+
 # SES — sender identity (arrearo.com once its DKIM verifies). Overridable by env.
 # arrearo.com couldn't be registered (account hold); the verified sender in this
 # account is kasamafo.africa (DKIM SUCCESS). Live send: SendMode=live + verified recipient.
@@ -37,6 +40,7 @@ TBL_INVOICES = f"{APP_SLUG}-invoices"
 TBL_DEBTORS = f"{APP_SLUG}-debtors"
 TBL_CONVERSATIONS = f"{APP_SLUG}-conversations"
 TBL_EVENTS = f"{APP_SLUG}-events"
+TBL_WA_SESSIONS = f"{APP_SLUG}-wa-sessions"   # WhatsApp login/link + navigation state
 
 # ── money ───────────────────────────────────────────────────────────────────
 CURRENCY = "GBP"
