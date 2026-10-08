@@ -29,10 +29,9 @@ WHATSAPP_SENDER_DISPLAY = "+233 55 906 2312"
 # Cognito user pool (web dashboard identity; the WhatsApp OTP login resolves to it)
 COGNITO_USER_POOL_ID = os.environ.get("COGNITO_USER_POOL_ID", "us-east-1_msvFwkml2")
 
-# SES — sender identity (arrearo.com once its DKIM verifies). Overridable by env.
-# arrearo.com couldn't be registered (account hold); the verified sender in this
-# account is kasamafo.africa (DKIM SUCCESS). Live send: SendMode=live + verified recipient.
-SES_SENDER = os.environ.get("SES_SENDER", "billing@kasamafo.africa")
+# SES — sender identity. Brownshift's own domain (brownshift.com) is the correct
+# sender for this entry; its SES DKIM must be verified in Cloudflare. Overridable by env.
+SES_SENDER = os.environ.get("SES_SENDER", "billing@brownshift.com")
 
 # ── DynamoDB tables (prefix is APP_SLUG, stable) ────────────────────────────
 TBL_BUSINESSES = f"{APP_SLUG}-businesses"

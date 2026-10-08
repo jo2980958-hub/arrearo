@@ -12,7 +12,7 @@ Parameters:
       The owner flips this once a WhatsApp template and an SES identity are approved.
   SesSender:
     Type: String
-    Default: billing@arrearo.com
+    Default: billing@brownshift.com   # Brownshift's own domain; verify its SES DKIM in Cloudflare
   Brand:
     Type: String
     Default: Arrearo
