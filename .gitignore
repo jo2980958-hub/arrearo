@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+node_modules/
+dist/
+.aws-sam/
+*.zip
+.env
+.DS_Store
+samconfig.toml.bak
+web/.vite/
