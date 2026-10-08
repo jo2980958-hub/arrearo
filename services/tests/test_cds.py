@@ -20,7 +20,7 @@ def stubbed(service):
 
 def test_send_whatsapp_text_exact_shape(live):
     c, st = stubbed("socialmessaging")
-    msg = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": "447700900123", "type": "text",
+    msg = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": "+447700900123", "type": "text",
            "text": {"preview_url": False, "body": "Hi"}}
     st.add_response("send_whatsapp_message", {"messageId": "wamid.OUT"},
                     {"originationPhoneNumberId": config.ORIGINATION_PHONE_NUMBER_ID,

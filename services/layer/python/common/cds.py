@@ -46,8 +46,12 @@ def set_client(service: str, c) -> None:
 
 
 def wa_id(number: str) -> str:
-    """Meta wants digits with the country code and no '+' (research A1)."""
-    return "".join(ch for ch in str(number) if ch.isdigit())
+    """AWS SendWhatsAppMessage wants the destination in E.164 WITH a leading '+'.
+    Inbound webhooks give the number without it (e.g. '233547738808'), and a
+    plain-digits 'to' is rejected with InvalidParametersException (confirmed with
+    a live send on 2026-10-08: no '+' failed, '+233...' delivered)."""
+    digits = "".join(ch for ch in str(number) if ch.isdigit())
+    return "+" + digits if digits else ""
 
 
 def send_whatsapp_text(to: str, body: str, reply_to_wamid: Optional[str] = None) -> str:
@@ -64,6 +68,23 @@ def send_whatsapp_text(to: str, body: str, reply_to_wamid: Optional[str] = None)
         msg["context"] = {"message_id": reply_to_wamid}
     if not live():
         log.info("DRY-RUN whatsapp to=%s body=%s", msg["to"], body)
+        return f"dry-run-{uuid.uuid4().hex[:12]}"
+    resp = client("socialmessaging").send_whatsapp_message(
+        originationPhoneNumberId=config.ORIGINATION_PHONE_NUMBER_ID,
+        message=json.dumps(msg).encode("utf-8"),
+        metaApiVersion=META_API_VERSION,
+    )
+    return resp["messageId"]
+
+
+def send_whatsapp_raw(to: str, message: dict) -> str:
+    """Send a pre-built Meta WhatsApp message (interactive buttons/list, document,
+    etc.) built by wa.messages. The builder omits 'to'; we add it here. Valid only
+    inside the 24h window. Returns the wamid (or a dry-run id when SEND_MODE != live)."""
+    msg = {"messaging_product": "whatsapp", "recipient_type": "individual",
+           "to": wa_id(to), **message}
+    if not live():
+        log.info("DRY-RUN whatsapp(raw) to=%s type=%s", msg["to"], message.get("type"))
         return f"dry-run-{uuid.uuid4().hex[:12]}"
     resp = client("socialmessaging").send_whatsapp_message(
         originationPhoneNumberId=config.ORIGINATION_PHONE_NUMBER_ID,
