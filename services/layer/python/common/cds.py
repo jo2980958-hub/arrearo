@@ -12,6 +12,9 @@ service models).
 from __future__ import annotations
 
 import json
+import logging
+import os
+import uuid
 from typing import Optional
 
 import boto3
@@ -19,6 +22,14 @@ import boto3
 from common import config
 
 META_API_VERSION = "v20.0"
+log = logging.getLogger(__name__)
+
+
+def live() -> bool:
+    """Sends are real only when SEND_MODE=live. Anything else logs the payload and
+    returns a dry-run id, so no stray WhatsApp or email leaves the account until
+    the owner switches it on (a stack parameter)."""
+    return os.environ.get("SEND_MODE", "dry") == "live"
 
 _clients: dict = {}
 
@@ -51,6 +62,9 @@ def send_whatsapp_text(to: str, body: str, reply_to_wamid: Optional[str] = None)
     }
     if reply_to_wamid:
         msg["context"] = {"message_id": reply_to_wamid}
+    if not live():
+        log.info("DRY-RUN whatsapp to=%s body=%s", msg["to"], body)
+        return f"dry-run-{uuid.uuid4().hex[:12]}"
     resp = client("socialmessaging").send_whatsapp_message(
         originationPhoneNumberId=config.ORIGINATION_PHONE_NUMBER_ID,
         message=json.dumps(msg).encode("utf-8"),
@@ -97,4 +111,7 @@ def send_email(to: str, subject: str, body: str, attachment: Optional[dict] = No
     }
     if reply_to:
         params["ReplyToAddresses"] = [reply_to]
+    if not live():
+        log.info("DRY-RUN email to=%s subject=%s attachment=%s", to, subject, bool(attachment))
+        return f"dry-run-{uuid.uuid4().hex[:12]}"
     return client("sesv2").send_email(**params)["MessageId"]

@@ -29,9 +29,8 @@ export function interestBasis(inv: Invoice): InterestBasis {
 
 export const isOpen = (inv: Invoice) => inv.status !== 'paid';
 export const isLate = (inv: Invoice) => isOpen(inv) && inv.daysLate > 0;
-/** Interest only keeps accruing on live, late debts. */
-export const isAccruing = (inv: Invoice) =>
-  isLate(inv) && inv.status !== 'extracted' && inv.status !== 'confirmed';
+/** Interest accrues on any confirmed, unpaid debt past its legally-late date. */
+export const isAccruing = (inv: Invoice) => isLate(inv) && inv.status !== 'extracted';
 
 export function pct(n: number): string {
   return `${Number.isInteger(n) ? n : n.toFixed(2).replace(/0$/, '')}%`;

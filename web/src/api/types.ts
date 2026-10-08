@@ -133,7 +133,8 @@ export interface ThreadMessage {
   hasMedia?: boolean;
   intent?: string | null;
   at: string;
-  party: 'owner' | 'debtor' | 'agent';
+  /** Which conversation it belongs to: the owner<->Arrearo chat or the Arrearo<->debtor chat. */
+  thread: 'owner' | 'debtor';
 }
 
 export interface NewInvoiceInput {

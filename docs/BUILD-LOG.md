@@ -42,6 +42,11 @@ New project in submission window; incremental commits; AWS SDK client imported +
 3-8. Build (after spec): legal engine+dataset · agent/Bedrock · CDS integration · infra/IaC · dashboard · (integration help)
 Me: spec, data model, API contract, domain registration, integration, deploy, verify, self-grade, iterate.
 
+## Known constraints (disclose in the README)
+- **Domain:** `arrearo.com` registration FAILED — a Brownshift account-level hold on Route 53 Domains ("contact AWS Support"), not fixable tonight. App runs on CloudFront/API-GW URLs. No custom domain tonight.
+- **SES:** no DNS-editable verified domain available (brownshift.com on Cloudflare; arrearo.com failed; kasamafo.africa not a Route53 zone). SES is BUILT (calls `ses:SendEmail` at runtime, degrades gracefully, emails rendered in the dashboard) but **live send is pending sender-identity verification** (owner verifies arrearo.com DNS or an email — 2 min). WhatsApp is the live channel; it satisfies the "CDS client called at runtime" requirement on its own.
+- **WhatsApp first-contact:** cold outbound to a debtor needs a Meta-approved template (long-lead, not via AWS API). In-window replies are free-form and work. Demo is driven by inbound messages (the SME sends the invoice photo, opening the window).
+
 ## Status log
 - 2026-10-08 ~04:3x UTC — decision made, feasibility verified, project scaffolded, 2 research agents launched.
 - 2026-10-08 ~04:4x UTC — SPEC written (data model, legal-engine interface, API, IaC, demo). **Legal engine built + 23 tests green** (I own this — it's the moat). `common/config.py` written (concrete ARNs/model IDs; internal slug `recoup` stable, BRAND finalised later). Research agents producing high-rigor output (gov.uk-verified figures, botocore-validated CDS shapes). **Key finding:** UK gov announced 24 Mar 2026 the largest late-payment reforms in 25+ yrs — mandatory statutory interest 8%+base on all commercial contracts — a major tailwind. Next: fold research → finalise name → register domain → dispatch build agents (agent/Bedrock, CDS channels, infra, dashboard, debtors).
