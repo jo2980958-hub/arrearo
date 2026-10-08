@@ -1,31 +1,34 @@
 # Arrearo — Devpost submission checklist
 
-What the hackathon requires, and where each item stands. Done means it is in the repo or live on AWS. Pending means it is an external step the owner does (push, upload, Partner Central), not code.
+What the hackathon requires, and where each item stands. Done means it is in the repo or live on AWS. Pending means it is an external step the owner does.
 
 ## In the repo / live (done)
 
-- [x] New project built inside the submission window, committed incrementally (not one dump). 21+ commits on `master`.
-- [x] AWS SDK client imported and called at runtime. See the CDS table in `DEVPOST.md` and the README.
-- [x] At least one accepted CDS client: `socialmessaging` (WhatsApp) and `sesv2` (SES). Both called by the Lambdas.
+- [x] New project built inside the submission window, committed incrementally. Many small commits.
+- [x] AWS SDK clients imported and called at runtime: WhatsApp (send text/interactive/documents, fetch and upload media), SES, Bedrock. See the table in `DEVPOST.md`.
+- [x] At least one accepted CDS client: `socialmessaging` (WhatsApp) and `sesv2` (SES), both called by the Lambdas.
 - [x] MIT licence file in the repo: `arrearo/LICENSE`.
-- [x] Architecture diagram: `submission/architecture.png` (also `docs/architecture.png`).
-- [x] README carries the hackathon AI disclosure.
-- [x] Live app reachable: dashboard + API on AWS, demo login works.
-- [x] Demo script written: `docs/DEMO.md` (the ~3 min walkthrough).
+- [x] Architecture diagram: `submission/architecture.png`.
+- [x] README carries the AI disclosure (note: README still needs a refresh for the WhatsApp app before filming).
+- [x] Live app on AWS: WhatsApp app + web dashboard, both reachable.
+- [x] Full WhatsApp app: OTP login, menu, natural-language control, edit parity, designed PDF documents. 130+ tests, incl. a full-surface audit.
+- [x] SES sender verified: `brownshift.com` (domain + DKIM) in account 854924711083; login codes send from `billing@brownshift.com`.
+- [x] Demo script: `docs/DEMO.md` (needs a short addendum for the WhatsApp app flow).
+- [ ] Submission images / thumbnails: `submission/images/` (being generated).
 
 ## External steps the owner does (pending)
 
-- [ ] **Public GitHub repo.** Push `arrearo/` to its own public repo, licence visible in the About panel. (If kept private instead, share with testing@devpost.com and aws-cds-partner@amazon.com.) Use the GitHub account tied to this entry, per the one-repo-per-project rule.
-- [ ] **Demo video, about 3 minutes, public on YouTube or Vimeo.** Film the `docs/DEMO.md` walkthrough on the live app. Put the URL in `DEVPOST.md` and the repo README.
-- [ ] **Net-new ACE opportunity** in Partner Central, created after 14 Sep 2026, tagged with the exact campaign string `AWS CDS Agentic AI Hackathon -Sept. 2026` (note the space before "Sept." and the trailing full stop). Record the O-prefixed id in `DEVPOST.md`.
-- [ ] **Corporate email on the domain tied to this submission's APN registration**, used for the Devpost entrant registration.
-- [ ] **Paste the Devpost form** from `DEVPOST.md`, with the three links filled in.
-- [ ] **Screenshots** in `submission/screenshots/` (optional but helps the Devpost gallery).
+- [ ] **Public GitHub repo.** Push `arrearo/` to its own public repo, MIT visible in About. Use the account tied to this entry (handle `jo2980958`). If private, share with testing@devpost.com and aws-cds-partner@amazon.com.
+- [ ] **Demo video, ~3 minutes, public on YouTube or Vimeo.** Show the WhatsApp app: log in, navigate, a live chase, an invoice PDF delivered. Put the URL in `DEVPOST.md` and the README.
+- [ ] **Net-new ACE opportunity** in Partner Central, created after 14 Sep 2026, tagged exactly `AWS CDS Agentic AI Hackathon -Sept. 2026`. Record the O-prefixed id in `DEVPOST.md`.
+- [ ] **Entrant email** on the submission: `devpost-demo@brownshift.com` (corporate address on the APN domain).
+- [ ] **Paste the Devpost form** from `DEVPOST.md` with the three links filled.
 
-## Optional polish before filming
+## Before filming
 
-- [ ] Flip `SendMode=live` and verify a recipient so a real WhatsApp chase and a real SES email can be shown on camera. Open the 24h window first by messaging the number. See the README Known limitations.
-- [ ] Rename the default branch `master` to `main` if you want it to match GitHub's default.
+- [ ] Refresh `README.md` for the WhatsApp app + the `brownshift.com` sender.
+- [ ] Confirm `arrearo-webhook` is `SEND_MODE=live` (every redeploy resets it to dry).
+- [ ] Have the login code inbox (`devpost-demo@brownshift.com`) open on screen for the demo.
 
 ## Judging weights (for reference)
 
