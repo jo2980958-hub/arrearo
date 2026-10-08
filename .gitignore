@@ -10,3 +10,4 @@ dist/
 .DS_Store
 samconfig.toml.bak
 web/.vite/
+.pytest_cache/
